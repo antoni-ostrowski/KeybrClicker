@@ -2,8 +2,13 @@
 
 A native macos keyboard-driven mouse click tool.
 
-> !> [!IMPORTANT]
-> fully build with glm-5
+
+
+https://github.com/user-attachments/assets/d83de07b-dc8a-4cde-ada7-0fdde644236d
+
+
+
+> i couldn't find an OSS tool like this so i decided to make my own, used opencode with glm-5.
 
 ## Building
 
@@ -19,7 +24,7 @@ A native macos keyboard-driven mouse click tool.
 
 ## Usage
 
-> only supports mouse 1 at the moment
+> only supports mouse1 at the moment
 
 1. Press the hotkey (default: `Cmd+Option+G`) to show the grid
 2. Type 2 letters to select a big cell
@@ -27,8 +32,7 @@ A native macos keyboard-driven mouse click tool.
 4. Press `Escape` to cancel at any time
 
 ## Configuration
-
-Edit `layout.json` to customize:
+Program reads config from the same directory its located in. Edit `layout.json` to customize:
 
 ### Hotkey
 
