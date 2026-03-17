@@ -9,12 +9,14 @@ https://github.com/user-attachments/assets/cdaeb2cc-6761-42ca-bf39-3e826ca67a42
 ## Building
 
 ```bash
-./scripts/build.sh
+just build
 ```
 
 ## Running
 
 ```bash
+just start
+# OR
 ./bin/keybrclicker
 ```
 
