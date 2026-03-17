@@ -2,13 +2,9 @@
 
 A native macos keyboard-driven mouse click tool.
 
-
-
 https://github.com/user-attachments/assets/d83de07b-dc8a-4cde-ada7-0fdde644236d
 
-
-
-> i couldn't find an OSS tool like this so i decided to make my own, used opencode with glm-5.
+> i couldn't find an OSS tool like this so i decided to make my own, vibecoded with opencode (glm-5).
 
 ## Building
 
@@ -32,6 +28,7 @@ https://github.com/user-attachments/assets/d83de07b-dc8a-4cde-ada7-0fdde644236d
 4. Press `Escape` to cancel at any time
 
 ## Configuration
+
 Program reads config from the same directory its located in. Edit `layout.json` to customize:
 
 ### Hotkey
