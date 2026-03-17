@@ -1,6 +1,6 @@
 # KeybrClicker
 
-A native macos keyboard-driven mouse click tool.
+A native macos keyboard-driven mouse click utility. (single file)
 
 https://github.com/user-attachments/assets/cdaeb2cc-6761-42ca-bf39-3e826ca67a42
 
@@ -9,36 +9,55 @@ https://github.com/user-attachments/assets/cdaeb2cc-6761-42ca-bf39-3e826ca67a42
 ## Building
 
 ```bash
-./build.sh
+./scripts/build.sh
 ```
 
 ## Running
 
 ```bash
-./keybrclicker
+./bin/keybrclicker
 ```
 
 ## Usage
 
-> only supports mouse1 at the moment
-
-1. Press the hotkey (default: `Cmd+Option+G`) to show the grid
+1. Press a hotkey to show the grid
 2. Type 2 letters to select a big cell
 3. Type 1 letter to click at that position in the mini grid
-4. Press `Escape` to cancel at any time
+4. Press `Escape` to cancel/exit at any time
 
 ## Configuration
 
 Config is stored at `~/.config/keybrclicker/config.json`. A default config is created automatically on first run if it doesn't exist.
 
-### Hotkey
+### Hotkeys
+
+Define multiple hotkeys, each with its own mouse button and persistence setting:
 
 ```json
-"hotkey": {
-  "modifiers": ["cmd", "option"],
-  "key": "g"
-}
+"hotkeys": [
+  {
+    "modifiers": ["cmd", "option"],
+    "key": "g",
+    "mouseButton": "left",
+    "persistent": false
+  },
+  {
+    "modifiers": ["cmd", "option", "shift"],
+    "key": "g",
+    "mouseButton": "right",
+    "persistent": true
+  }
+]
 ```
+
+**Fields:**
+
+- `modifiers`: Array of modifier keys (see below)
+- `key`: Single key to trigger the hotkey (see below)
+- `mouseButton`: `"left"`, `"right"`, or `"middle"`
+- `persistent`: If `true`, grid stays active after each click for rapid chaining. Press `Escape` to exit.
+
+**Persistent Mode:** When enabled, the grid reappears immediately after each click, allowing fast consecutive clicks without re-triggering the hotkey.
 
 **Available modifiers:**
 
@@ -57,9 +76,9 @@ Config is stored at `~/.config/keybrclicker/config.json`. A default config is cr
 
 **Examples:**
 
-- `Cmd+Option+G`: `{"modifiers": ["cmd", "option"], "key": "g"}`
-- `Ctrl+Shift+Space`: `{"modifiers": ["control", "shift"], "key": "space"}`
-- `Cmd+F1`: `{"modifiers": ["cmd"], "key": "f1"}`
+- Left click, normal: `{"modifiers": ["cmd", "option"], "key": "g", "mouseButton": "left", "persistent": false}`
+- Right click, persistent: `{"modifiers": ["cmd", "option", "shift"], "key": "g", "mouseButton": "right", "persistent": true}`
+- Middle click: `{"modifiers": ["cmd", "option"], "key": "m", "mouseButton": "middle", "persistent": false}`
 
 ### Keyboard Layout
 

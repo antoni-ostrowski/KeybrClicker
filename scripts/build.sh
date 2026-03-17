@@ -1,11 +1,12 @@
 #!/bin/bash
 
 echo "Compiling keybrclicker..."
-swiftc -o keybrclicker main.swift -framework Cocoa
+mkdir bin
+swiftc -o ./bin/keybrclicker ./src/main.swift -framework Cocoa
 
 if [ $? -eq 0 ]; then
     echo "Build successful!"
-    echo "Run with: ./keybrclicker"
+    echo "Run with: ./bin/keybrclicker"
 else
     echo "Build failed!"
     exit 1
