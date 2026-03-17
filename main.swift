@@ -119,7 +119,110 @@ enum GridState {
     case miniGrid
 }
 
+let MINI_GRID_ZOOM_FACTOR: CGFloat = 3.0
+
 var globalConfig: LayoutConfig?
+
+class ZoomedMiniGridView: NSView {
+    var config: LayoutConfig!
+    
+    override var isFlipped: Bool { true }
+    
+    init(frame frameRect: NSRect, config: LayoutConfig) {
+        super.init(frame: frameRect)
+        self.config = config
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        let bounds = self.bounds
+        
+        NSColor.black.withAlphaComponent(0.75).setFill()
+        let bgPath = NSBezierPath(roundedRect: bounds, xRadius: 12, yRadius: 12)
+        bgPath.fill()
+        
+        let miniRows = config.miniGridRows
+        let miniCols = config.miniGridCols
+        
+        let padding: CGFloat = 24
+        let availableWidth = bounds.width - padding * 2
+        let availableHeight = bounds.height - padding * 2
+        
+        let cellAspectRatio = CGFloat(miniCols) / CGFloat(miniRows)
+        let viewAspectRatio = availableWidth / availableHeight
+        
+        var gridWidth: CGFloat
+        var gridHeight: CGFloat
+        
+        if viewAspectRatio > cellAspectRatio {
+            gridHeight = availableHeight
+            gridWidth = gridHeight * cellAspectRatio
+        } else {
+            gridWidth = availableWidth
+            gridHeight = gridWidth / cellAspectRatio
+        }
+        
+        let gridX = (bounds.width - gridWidth) / 2
+        let gridY = (bounds.height - gridHeight) / 2
+        
+        let miniCellWidth = gridWidth / CGFloat(miniCols)
+        let miniCellHeight = gridHeight / CGFloat(miniRows)
+        
+        NSColor.white.withAlphaComponent(0.2).setStroke()
+        let gridPath = NSBezierPath()
+        gridPath.lineWidth = 0.5
+        
+        for miniCol in 0...miniCols {
+            let x = gridX + CGFloat(miniCol) * miniCellWidth
+            gridPath.move(to: NSPoint(x: x, y: gridY))
+            gridPath.line(to: NSPoint(x: x, y: gridY + gridHeight))
+        }
+        
+        for miniRow in 0...miniRows {
+            let y = gridY + CGFloat(miniRow) * miniCellHeight
+            gridPath.move(to: NSPoint(x: gridX, y: y))
+            gridPath.line(to: NSPoint(x: gridX + gridWidth, y: y))
+        }
+        
+        gridPath.stroke()
+        
+        let dotRadius: CGFloat = max(2, min(miniCellWidth, miniCellHeight) * 0.035)
+        let fontSize: CGFloat = max(16, min(miniCellWidth, miniCellHeight) * 0.35)
+        let font = NSFont.systemFont(ofSize: fontSize)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white
+        ]
+        
+        for miniRow in 0..<miniRows {
+            for miniCol in 0..<miniCols {
+                guard miniRow < config.allKeys.count,
+                      miniCol < config.allKeys[miniRow].count else { continue }
+                
+                let key = config.allKeys[miniRow][miniCol]
+                let centerX = gridX + CGFloat(miniCol) * miniCellWidth + miniCellWidth / 2
+                let centerY = gridY + CGFloat(miniRow) * miniCellHeight + miniCellHeight / 2
+                
+                let dotPath = NSBezierPath()
+                dotPath.appendOval(in: NSRect(x: centerX - dotRadius, y: centerY - dotRadius, width: dotRadius * 2, height: dotRadius * 2))
+                NSColor.white.withAlphaComponent(0.9).setFill()
+                dotPath.fill()
+                
+                let textSize = key.size(withAttributes: attrs)
+                let textRect = NSRect(
+                    x: centerX + dotRadius + 4,
+                    y: centerY - textSize.height / 2,
+                    width: textSize.width,
+                    height: textSize.height
+                )
+                key.draw(in: textRect, withAttributes: attrs)
+            }
+        }
+    }
+}
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var gridWindow: GridWindow!
@@ -254,6 +357,7 @@ class GridView: NSView {
     var inputBuffer: String = ""
     var selectedBigCell: String = ""
     var previousApp: NSRunningApplication?
+    var zoomedMiniGridView: ZoomedMiniGridView?
     
     override var isFlipped: Bool { true }
     
@@ -450,15 +554,15 @@ class GridView: NSView {
                 let cellRect = NSRect(x: cellX, y: cellY, width: cellWidth, height: cellHeight)
                 
                 if col == selectedIndices.col && row == selectedIndices.row {
-                    NSColor.lightGray.withAlphaComponent(0.3).setFill()
+                    NSColor.lightGray.withAlphaComponent(0.15).setFill()
                 } else {
-                    NSColor.black.withAlphaComponent(0.7).setFill()
+                    NSColor.black.withAlphaComponent(0.35).setFill()
                 }
                 cellRect.fill()
             }
         }
         
-        NSColor.darkGray.withAlphaComponent(0.5).setStroke()
+        NSColor.darkGray.withAlphaComponent(0.4).setStroke()
         let path = NSBezierPath()
         path.lineWidth = 0.5
         
@@ -493,39 +597,12 @@ class GridView: NSView {
         let miniCellWidth = cellWidth / CGFloat(miniCols)
         let miniCellHeight = cellHeight / CGFloat(miniRows)
         
-        for miniRow in 0..<miniRows {
-            for miniCol in 0..<miniCols {
-                let miniX = bigCellX + CGFloat(miniCol) * miniCellWidth
-                let miniY = bigCellY + CGFloat(miniRow) * miniCellHeight
-                let miniRect = NSRect(x: miniX, y: miniY, width: miniCellWidth, height: miniCellHeight)
-                
-                NSColor.lightGray.withAlphaComponent(0.2).setFill()
-                miniRect.fill()
-            }
-        }
-        
-        NSColor.white.withAlphaComponent(0.8).setStroke()
-        let path = NSBezierPath()
-        path.lineWidth = 1.0
-        
-        for miniCol in 0...miniCols {
-            let x = bigCellX + CGFloat(miniCol) * miniCellWidth
-            path.move(to: NSPoint(x: x, y: bigCellY))
-            path.line(to: NSPoint(x: x, y: bigCellY + cellHeight))
-        }
-        
-        for miniRow in 0...miniRows {
-            let y = bigCellY + CGFloat(miniRow) * miniCellHeight
-            path.move(to: NSPoint(x: bigCellX, y: y))
-            path.line(to: NSPoint(x: bigCellX + cellWidth, y: y))
-        }
-        
-        path.stroke()
-        
-        let font = NSFont.systemFont(ofSize: 7)
+        let dotRadius: CGFloat = max(1.5, min(miniCellWidth, miniCellHeight) * 0.035)
+        let fontSize: CGFloat = max(8, min(miniCellWidth, miniCellHeight) * 0.2)
+        let font = NSFont.systemFont(ofSize: fontSize)
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor.white
+            .foregroundColor: NSColor.white.withAlphaComponent(0.9)
         ]
         
         for miniRow in 0..<miniRows {
@@ -534,17 +611,21 @@ class GridView: NSView {
                       miniCol < config.allKeys[miniRow].count else { continue }
                 
                 let key = config.allKeys[miniRow][miniCol]
-                let miniX = bigCellX + CGFloat(miniCol) * miniCellWidth + miniCellWidth / 2
-                let miniY = bigCellY + CGFloat(miniRow) * miniCellHeight + miniCellHeight / 2
+                let centerX = bigCellX + CGFloat(miniCol) * miniCellWidth + miniCellWidth / 2
+                let centerY = bigCellY + CGFloat(miniRow) * miniCellHeight + miniCellHeight / 2
+                
+                let dotPath = NSBezierPath()
+                dotPath.appendOval(in: NSRect(x: centerX - dotRadius, y: centerY - dotRadius, width: dotRadius * 2, height: dotRadius * 2))
+                NSColor.white.withAlphaComponent(0.7).setFill()
+                dotPath.fill()
                 
                 let textSize = key.size(withAttributes: attrs)
                 let textRect = NSRect(
-                    x: miniX - textSize.width / 2,
-                    y: miniY - textSize.height / 2,
+                    x: centerX + dotRadius + 2,
+                    y: centerY - textSize.height / 2,
                     width: textSize.width,
                     height: textSize.height
                 )
-                
                 key.draw(in: textRect, withAttributes: attrs)
             }
         }
@@ -585,6 +666,7 @@ class GridView: NSView {
                 print("Valid big cell selected: \(inputBuffer), switching to mini grid")
                 selectedBigCell = inputBuffer
                 state = .miniGrid
+                applyZoomToSelectedCell()
                 needsDisplay = true
             } else {
                 print("Invalid big cell code: \(inputBuffer), hiding grid")
@@ -609,6 +691,7 @@ class GridView: NSView {
         guard let bigIndices = getBigCellIndices(code: bigCell),
               let miniPosition = findMiniKeyPosition(miniKey) else {
             print("ERROR: Invalid cell or key")
+            resetZoom()
             (window as? GridWindow)?.hide()
             return
         }
@@ -632,6 +715,7 @@ class GridView: NSView {
         let windowPoint = convert(NSPoint(x: localX, y: localY), to: nil)
         guard let screenRect = window?.convertToScreen(NSRect(origin: windowPoint, size: .zero)) else {
             print("ERROR: Could not convert to screen coordinates")
+            resetZoom()
             (window as? GridWindow)?.hide()
             return
         }
@@ -649,6 +733,7 @@ class GridView: NSView {
         guard let downEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: cgClickPoint, mouseButton: .left),
               let upEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: cgClickPoint, mouseButton: .left) else {
             print("ERROR: Could not create mouse events")
+            resetZoom()
             (window as? GridWindow)?.hide()
             return
         }
@@ -656,6 +741,7 @@ class GridView: NSView {
         downEvent.setIntegerValueField(.mouseEventClickState, value: 1)
         upEvent.setIntegerValueField(.mouseEventClickState, value: 1)
         
+        resetZoom()
         (window as? GridWindow)?.hide()
         
         usleep(150000)
@@ -674,7 +760,28 @@ class GridView: NSView {
         print("=== CLICK COMPLETE ===")
     }
     
+    func applyZoomToSelectedCell() {
+        zoomedMiniGridView?.removeFromSuperview()
+        
+        let panelWidth = bounds.width * 0.28
+        let panelHeight = bounds.height * 0.22
+        let padding: CGFloat = 20
+        let panelX = bounds.width - panelWidth - padding
+        let panelY = bounds.height - panelHeight - padding
+        
+        let panelFrame = NSRect(x: panelX, y: panelY, width: panelWidth, height: panelHeight)
+        zoomedMiniGridView = ZoomedMiniGridView(frame: panelFrame, config: config)
+        addSubview(zoomedMiniGridView!)
+    }
+    
+    func resetZoom() {
+        zoomedMiniGridView?.removeFromSuperview()
+        zoomedMiniGridView = nil
+        needsDisplay = true
+    }
+    
     func reset() {
+        resetZoom()
         state = .bigGrid
         inputBuffer = ""
         selectedBigCell = ""
