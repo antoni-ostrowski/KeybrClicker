@@ -84,19 +84,14 @@ Define multiple hotkeys, each with its own mouse button and persistence setting:
 
 The grid is based on your keyboard layout for easy memorization.
 
-**`home_row`**: Keys used for big grid column names (typically your home row keys, left to right)
-
-**`all_keys`**: 2D array representing your keyboard rows (top to bottom, left to right). Used for:
-
-1. Big grid row names (flattened order)
-2. Mini grid layout inside selected big cells
+**`layout`**: 2D array representing your keyboard rows (top to bottom, left to right). The middle row is automatically used as the home row for column labels.
 
 **Example (QWERTY):**
 
 ```json
 {
-  "home_row": ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
-  "all_keys": [
+  "hotkeys": [...],
+  "layout": [
     ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
     ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
     ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]

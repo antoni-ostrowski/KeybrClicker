@@ -27,9 +27,7 @@ func createDefaultLayoutConfig() -> LayoutConfig {
     )
     return LayoutConfig(
         hotkeys: [defaultHotkey],
-        homeRow: ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
-        allKeys: [
-            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+        layout: [            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
             ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
             ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
         ]
@@ -160,25 +158,27 @@ struct HotkeyConfig: Codable {
 
 struct LayoutConfig: Codable {
     let hotkeys: [HotkeyConfig]
-    let homeRow: [String]
-    let allKeys: [[String]]
+    let layout: [[String]]
     
     enum CodingKeys: String, CodingKey {
         case hotkeys
-        case homeRow = "home_row"
-        case allKeys = "all_keys"
+        case layout
+    }
+    
+    var homeRow: [String] {
+        return layout[layout.count / 2]
     }
     
     var flattenedKeys: [String] {
-        return allKeys.flatMap { $0 }
+        return layout.flatMap { $0 }
     }
     
     var miniGridRows: Int {
-        return allKeys.count
+        return layout.count
     }
     
     var miniGridCols: Int {
-        return allKeys.first?.count ?? 0
+        return layout.first?.count ?? 0
     }
 }
 
@@ -406,7 +406,7 @@ class GridView: NSView {
     }
     
     func findMiniKeyPosition(_ key: String) -> (row: Int, col: Int)? {
-        for (rowIndex, row) in config.allKeys.enumerated() {
+        for (rowIndex, row) in config.layout.enumerated() {
             if let colIndex = row.firstIndex(of: key) {
                 return (rowIndex, colIndex)
             }
@@ -573,10 +573,10 @@ class GridView: NSView {
         
         for miniRow in 0..<miniRows {
             for miniCol in 0..<miniCols {
-                guard miniRow < config.allKeys.count,
-                      miniCol < config.allKeys[miniRow].count else { continue }
+                guard miniRow < config.layout.count,
+                      miniCol < config.layout[miniRow].count else { continue }
                 
-                let key = config.allKeys[miniRow][miniCol]
+                let key = config.layout[miniRow][miniCol]
                 let centerX = bigCellX + CGFloat(miniCol) * miniCellWidth + miniCellWidth / 2
                 let centerY = bigCellY + CGFloat(miniRow) * miniCellHeight + miniCellHeight / 2
                 
