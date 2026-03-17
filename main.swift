@@ -6,6 +6,12 @@ let HIDE_DELAY_US: useconds_t = 0        // Delay after hiding grid
 let FOCUS_DELAY_US: useconds_t = 0       // Delay after activating previous app
 let CLICK_DELAY_US: useconds_t = 0       // Delay between mouse down/up
 
+enum MouseButton: String, Codable {
+    case left = "left"
+    case right = "right"
+    case middle = "middle"
+}
+
 // MARK: - Config Path
 func getConfigURL() -> URL {
     let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -13,9 +19,14 @@ func getConfigURL() -> URL {
 }
 
 func createDefaultLayoutConfig() -> LayoutConfig {
-    let defaultHotkey = HotkeyConfig(modifiers: ["cmd", "option"], key: "g")
+    let defaultHotkey = HotkeyConfig(
+        modifiers: ["cmd", "option"],
+        key: "g",
+        mouseButton: .left,
+        persistent: false
+    )
     return LayoutConfig(
-        hotkey: defaultHotkey,
+        hotkeys: [defaultHotkey],
         homeRow: ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
         allKeys: [
             ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -58,6 +69,8 @@ func ensureConfigExists() {
 struct HotkeyConfig: Codable {
     let modifiers: [String]
     let key: String
+    let mouseButton: MouseButton
+    let persistent: Bool
     
     func getModifierFlags() -> NSEvent.ModifierFlags {
         var flags: NSEvent.ModifierFlags = []
@@ -146,12 +159,12 @@ struct HotkeyConfig: Codable {
 }
 
 struct LayoutConfig: Codable {
-    let hotkey: HotkeyConfig
+    let hotkeys: [HotkeyConfig]
     let homeRow: [String]
     let allKeys: [[String]]
     
     enum CodingKeys: String, CodingKey {
-        case hotkey
+        case hotkeys
         case homeRow = "home_row"
         case allKeys = "all_keys"
     }
@@ -199,32 +212,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         gridWindow = GridWindow()
         
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if self?.isHotkey(event) == true {
+            if let hotkey = self?.isHotkey(event) {
                 print("Hotkey detected (global), showing grid")
                 DispatchQueue.main.async {
-                    self?.showGrid()
+                    self?.showGrid(hotkey)
                 }
             }
         }
         
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if self?.isHotkey(event) == true {
+            if let hotkey = self?.isHotkey(event) {
                 print("Hotkey detected (local), showing grid")
-                self?.showGrid()
+                self?.showGrid(hotkey)
                 return nil
             }
             return event
         }
         
         if let config = globalConfig {
-            let mods = config.hotkey.modifiers.joined(separator: "+")
-            print("KeybrClicker ready. Press \(mods.uppercased())+\(config.hotkey.key.uppercased()) to show grid.")
+            print("KeybrClicker ready. Registered hotkeys:")
+            for (index, hotkey) in config.hotkeys.enumerated() {
+                let mods = hotkey.modifiers.joined(separator: "+")
+                print("  [\(index)] \(mods.uppercased())+\(hotkey.key.uppercased()) →\(hotkey.mouseButton.rawValue) click\(hotkey.persistent ? " (persistent)" : "")")
+            }
         } else {
             print("KeybrClicker ready.")
         }
     }
     
-    func loadGlobalConfig() {
+func loadGlobalConfig() {
         let configURL = getConfigURL()
         let fileManager = FileManager.default
         
@@ -236,28 +252,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let data = try Data(contentsOf: configURL)
             globalConfig = try JSONDecoder().decode(LayoutConfig.self, from: data)
-            print("Loaded config with hotkey: \(globalConfig?.hotkey.modifiers.joined(separator: "+") ?? "")+\(globalConfig?.hotkey.key ?? "")")
+            print("Loaded config with \(globalConfig?.hotkeys.count ?? 0) hotkey(s)")
         } catch {
             print("ERROR: Failed to load config.json: \(error)")
         }
     }
     
-    func isHotkey(_ event: NSEvent) -> Bool {
+    func isHotkey(_ event: NSEvent) -> HotkeyConfig? {
         guard let config = globalConfig else {
-            let cmdOpt = NSEvent.ModifierFlags([.command, .option])
-            return event.modifierFlags.contains(cmdOpt) && event.keyCode == 5
+            return nil
         }
         
-        let requiredFlags = config.hotkey.getModifierFlags()
-        guard let requiredKeyCode = config.hotkey.getKeyCode() else {
-            return false
+        for hotkey in config.hotkeys {
+            let requiredFlags = hotkey.getModifierFlags()
+            guard let requiredKeyCode = hotkey.getKeyCode() else {
+                continue
+            }
+            
+            if event.modifierFlags.contains(requiredFlags) && event.keyCode == requiredKeyCode {
+                return hotkey
+            }
         }
         
-        return event.modifierFlags.contains(requiredFlags) && event.keyCode == requiredKeyCode
+        return nil
     }
     
-    func showGrid() {
-        gridWindow.show()
+    func showGrid(_ hotkey: HotkeyConfig) {
+        gridWindow.show(hotkey)
     }
 }
 
@@ -293,13 +314,15 @@ class GridWindow: NSWindow {
         contentView = gridView
     }
     
-    func show() {
+    func show(_ hotkey: HotkeyConfig) {
         guard let screen = getMouseScreen() else {
             print("ERROR: No screen found")
             return
         }
         gridView.previousApp = NSWorkspace.shared.frontmostApplication
+        gridView.activeHotkey = hotkey
         print("Stored previous app: \(gridView.previousApp?.localizedName ?? "nil")")
+        print("Active hotkey: \(hotkey.mouseButton.rawValue) click, persistent: \(hotkey.persistent)")
         setFrame(screen.frame, display: true)
         makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -320,6 +343,7 @@ class GridView: NSView {
     var inputBuffer: String = ""
     var selectedBigCell: String = ""
     var previousApp: NSRunningApplication?
+    var activeHotkey: HotkeyConfig?
     
     override var isFlipped: Bool { true }
     
@@ -664,17 +688,47 @@ class GridView: NSView {
         let globalMaxY = NSScreen.screens.map { $0.frame.maxY }.max() ?? NSScreen.main!.frame.height
         let cgClickPoint = CGPoint(x: clickPoint.x, y: globalMaxY - clickPoint.y)
         
+        let mouseButton = activeHotkey?.mouseButton ?? .left
+        let isPersistent = activeHotkey?.persistent ?? false
+        
+        let savedHotkey = activeHotkey
+        
         print("=== CLICK DEBUG ===")
         print("Big cell: \(bigCell), Mini key: \(miniKey)")
         print("Click point (CG): (\(cgClickPoint.x), \(cgClickPoint.y))")
+        print("Mouse button: \(mouseButton.rawValue), Persistent: \(isPersistent)")
         
         let source = CGEventSource(stateID: .hidSystemState)
         
-        guard let downEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: cgClickPoint, mouseButton: .left),
-              let upEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: cgClickPoint, mouseButton: .left) else {
+        let downType: CGEventType
+        let upType: CGEventType
+        let cgButton: CGMouseButton
+        
+        switch mouseButton {
+        case .left:
+            downType = .leftMouseDown
+            upType = .leftMouseUp
+            cgButton = .left
+        case .right:
+            downType = .rightMouseDown
+            upType = .rightMouseUp
+            cgButton = .right
+        case .middle:
+            downType = .otherMouseDown
+            upType = .otherMouseUp
+            cgButton = .center
+        }
+        
+        guard let downEvent = CGEvent(mouseEventSource: source, mouseType: downType, mouseCursorPosition: cgClickPoint, mouseButton: cgButton),
+              let upEvent = CGEvent(mouseEventSource: source, mouseType: upType, mouseCursorPosition: cgClickPoint, mouseButton: cgButton) else {
             print("ERROR: Could not create mouse events")
             (window as? GridWindow)?.hide()
             return
+        }
+        
+        if mouseButton == .middle {
+            downEvent.setIntegerValueField(.mouseEventButtonNumber, value: 2)
+            upEvent.setIntegerValueField(.mouseEventButtonNumber, value: 2)
         }
         
         downEvent.setIntegerValueField(.mouseEventClickState, value: 1)
@@ -683,6 +737,8 @@ class GridView: NSView {
         let app = previousApp
         
         (window as? GridWindow)?.hide()
+        
+        let gridView = self
         
         DispatchQueue.global(qos: .userInteractive).async {
             usleep(HIDE_DELAY_US)
@@ -699,6 +755,16 @@ class GridView: NSView {
             upEvent.post(tap: .cgSessionEventTap)
             
             print("=== CLICK COMPLETE ===")
+            
+            if isPersistent {
+                DispatchQueue.main.async {
+                    gridView.activeHotkey = savedHotkey
+                    gridView.reset()
+                    if let window = gridView.window as? GridWindow {
+                        window.show(savedHotkey!)
+                    }
+                }
+            }
         }
     }
     
