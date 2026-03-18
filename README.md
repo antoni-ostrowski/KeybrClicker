@@ -2,9 +2,15 @@
 
 A native macos keyboard-driven mouse click utility. (single file)
 
-https://github.com/user-attachments/assets/cdaeb2cc-6761-42ca-bf39-3e826ca67a42
+
+https://github.com/user-attachments/assets/c980febb-5f5d-4e62-ba2e-fa71afcf87b9
+
+
 
 > i couldn't find an OSS tool like this so i decided to make my own, vibecoded with opencode (glm-5).
+
+# Getting Started
+Download binary from [latest release](https://github.com/antoni-ostrowski/keybrclicker/releases).
 
 ## Building
 
