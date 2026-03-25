@@ -49,6 +49,17 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.keybrclicker.plist
 3. Type 1 letter to click at that position in the mini grid
 4. Press `Escape` to cancel/exit at any time
 
+### Big Cell Labels
+
+-**1st letter:** Column label from your home row (left to right on keyboard)
+- **2nd letter:** Row label in alphabetical order from top (A, B, C, ..., Z, ;, ,, ., /, ...)
+
+For example, with default QWERTY layout:
+- `AA` = top-left corner
+- `AB` = second row from top, leftmost column
+- `SA` = top row, second column from left
+- `AZ` = row 26 from top (if exists)
+
 ## Configuration
 
 Config: `~/.config/keybrclicker/config.json` (created automatically)

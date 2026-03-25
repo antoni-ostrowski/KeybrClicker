@@ -255,6 +255,13 @@ struct LayoutConfig: Codable {
     var miniGridCols: Int {
         return layout.first?.count ?? 0
     }
+    
+    var rowLabels: [String] {
+        let alphabet = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
+        let extraSymbols = [";", ",", ".", "/", "-", "=", "[", "]", "'", "\\", "`"]
+        let allLabels = alphabet + extraSymbols
+        return Array(allLabels.prefix(flattenedKeys.count))
+    }
 }
 
 enum GridState {
@@ -616,7 +623,7 @@ class GridView: NSView {
     
     func getBigCellCode(col: Int, row: Int) -> String {
         let colKey = config.homeRow[col]
-        let rowKey = config.flattenedKeys[row]
+        let rowKey = config.rowLabels[row]
         return colKey + rowKey
     }
     
@@ -625,7 +632,7 @@ class GridView: NSView {
         let chars = Array(code)
         let colKey = String(chars[0])
         let rowKey = String(chars[1])
-        return config.homeRow.contains(colKey) && config.flattenedKeys.contains(rowKey)
+        return config.homeRow.contains(colKey) && config.rowLabels.contains(rowKey)
     }
     
     func getBigCellIndices(code: String) -> (col: Int, row: Int)? {
@@ -635,7 +642,7 @@ class GridView: NSView {
         let rowKey = String(chars[1])
         
         guard let colIndex = config.homeRow.firstIndex(of: colKey),
-              let rowIndex = config.flattenedKeys.firstIndex(of: rowKey) else {
+              let rowIndex = config.rowLabels.firstIndex(of: rowKey) else {
             return nil
         }
         
