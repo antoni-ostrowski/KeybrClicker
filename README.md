@@ -2,14 +2,12 @@
 
 A native macos keyboard-driven mouse click utility. (single file)
 
-
 https://github.com/user-attachments/assets/c980febb-5f5d-4e62-ba2e-fa71afcf87b9
-
-
 
 > i couldn't find an OSS tool like this so i decided to make my own, vibecoded with opencode (glm-5).
 
 # Getting Started
+
 Download binary from [latest release](https://github.com/antoni-ostrowski/keybrclicker/releases).
 
 ## Building
@@ -83,6 +81,44 @@ Define multiple hotkeys, each with its own mouse button:
 - Right click: `{"modifiers": ["cmd", "option", "shift"], "key": "g", "mouseButton": "right"}`
 - Middle click: `{"modifiers": ["cmd", "option"], "key": "m", "mouseButton": "middle"}`
 
+### Scroll Mode
+
+Scroll mode allows you to scroll anywhere using keyboard keys. When activated:
+
+1. Press the configured scroll hotkey to enter scroll mode
+2. Use scroll keys (default: H/J/K/L for left/down/up/right) to scroll at the current mouse position
+3. Hold the key to scroll continuously
+4. Press `Escape` to exit scroll mode
+
+**`scrollHotkeys`**: Array of hotkey configurations to activate scroll mode (no mouse button needed).
+
+**`scrollKeys`**: Configuration for scroll direction keys and scroll amount.
+
+```json
+{
+  "scrollHotkeys": [
+    { "modifiers": ["cmd", "option"], "key": "s" }
+  ],
+  "scrollKeys": {
+    "up": "k",
+    "down": "j",
+    "left": "h",
+    "right": "l",
+    "amount": 3
+  }
+}
+```
+
+**Fields:**
+
+- `up`, `down`, `left`, `right`: Keys for each scroll direction
+- `amount`: Number of scroll units per keypress (default: 3)
+
+**Note**: If `scrollHotkeys` or `scrollKeys` are not specified in config, defaults are used:
+- Scroll hotkey: `Cmd+Option+S`
+- Scroll keys: H/J/K/L (vim-style)
+- Scroll amount: 3
+
 ### Keyboard Layout
 
 The grid is based on your keyboard layout for easy memorization.
@@ -108,8 +144,9 @@ On first run, the app will request Accessibility permissions. This is required f
 
 - Global hotkey detection
 - Simulating mouse clicks
+- Simulating scroll events
 
-If clicks don't work, check **System Settings → Privacy & Security → Accessibility** and ensure `keybrclicker` is enabled.
+If clicks or scrolling don't work, check **System Settings → Privacy & Security → Accessibility** and ensure `keybrclicker` is enabled.
 
 ## Quitting
 

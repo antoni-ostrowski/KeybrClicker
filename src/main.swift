@@ -12,6 +12,13 @@ enum MouseButton: String, Codable {
     case middle = "middle"
 }
 
+enum ScrollDirection {
+    case up
+    case down
+    case left
+    case right
+}
+
 // MARK: - Config Path
 func getConfigURL() -> URL {
     let homeDir = FileManager.default.homeDirectoryForCurrentUser
@@ -24,9 +31,16 @@ func createDefaultLayoutConfig() -> LayoutConfig {
         key: "g",
         mouseButton: .left
     )
+    let defaultScrollHotkey = ScrollHotkeyConfig(
+        modifiers: ["cmd", "option"],
+        key: "s"
+    )
     return LayoutConfig(
         hotkeys: [defaultHotkey],
-        layout: [            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+        scrollHotkeys: [defaultScrollHotkey],
+        scrollKeys: ScrollKeysConfig.defaultConfig(),
+        layout: [
+            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
             ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
             ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
         ]
@@ -88,6 +102,10 @@ struct HotkeyConfig: Codable {
     }
     
     func getKeyCode() -> CGKeyCode? {
+        return HotkeyConfig.keyCodeForKey(key)
+    }
+    
+    static func keyCodeForKey(_ key: String) -> CGKeyCode? {
         let keyLower = key.lowercased()
         switch keyLower {
         case "a": return 0
@@ -154,13 +172,72 @@ struct HotkeyConfig: Codable {
     }
 }
 
+struct ScrollHotkeyConfig: Codable {
+    let modifiers: [String]
+    let key: String
+    
+    func getModifierFlags() -> NSEvent.ModifierFlags {
+        var flags: NSEvent.ModifierFlags = []
+        for modifier in modifiers {
+            switch modifier.lowercased() {
+            case "cmd", "command":
+                flags.insert(.command)
+            case "option", "alt":
+                flags.insert(.option)
+            case "control", "ctrl":
+                flags.insert(.control)
+            case "shift":
+                flags.insert(.shift)
+            default:
+                print("WARNING: Unknown modifier: \(modifier)")
+            }
+        }
+        return flags
+    }
+    
+    func getKeyCode() -> CGKeyCode? {
+        return HotkeyConfig.keyCodeForKey(key)
+    }
+}
+
+struct ScrollKeysConfig: Codable {
+    let up: String
+    let down: String
+    let left: String
+    let right: String
+    let amount: Int
+    
+    static func defaultConfig() -> ScrollKeysConfig {
+        return ScrollKeysConfig(up: "k", down: "j", left: "h", right: "l", amount: 3)
+    }
+}
+
 struct LayoutConfig: Codable {
     let hotkeys: [HotkeyConfig]
+    let scrollHotkeys: [ScrollHotkeyConfig]
+    let scrollKeys: ScrollKeysConfig
     let layout: [[String]]
     
     enum CodingKeys: String, CodingKey {
         case hotkeys
+        case scrollHotkeys
+        case scrollKeys
         case layout
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hotkeys = try container.decode([HotkeyConfig].self, forKey: .hotkeys)
+        scrollHotkeys = try container.decodeIfPresent([ScrollHotkeyConfig].self, forKey: .scrollHotkeys) ?? []
+        scrollKeys = try container.decodeIfPresent(ScrollKeysConfig.self, forKey: .scrollKeys) ?? ScrollKeysConfig.defaultConfig()
+        layout = try container.decode([[String]].self, forKey: .layout)
+    }
+    
+    init(hotkeys: [HotkeyConfig], scrollHotkeys: [ScrollHotkeyConfig], scrollKeys: ScrollKeysConfig, layout: [[String]]) {
+        self.hotkeys = hotkeys
+        self.scrollHotkeys = scrollHotkeys
+        self.scrollKeys = scrollKeys
+        self.layout = layout
     }
     
     var homeRow: [String] {
@@ -189,6 +266,7 @@ var globalConfig: LayoutConfig?
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var gridWindow: GridWindow!
+    var scrollWindow: ScrollWindow!
     var globalMonitor: Any?
     var localMonitor: Any?
     
@@ -208,12 +286,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         gridWindow = GridWindow()
+        scrollWindow = ScrollWindow()
         
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if let hotkey = self?.isHotkey(event) {
                 print("Hotkey detected (global), showing grid")
                 DispatchQueue.main.async {
                     self?.showGrid(hotkey)
+                }
+            } else if let _ = self?.isScrollHotkey(event) {
+                print("Scroll hotkey detected (global), showing scroll mode")
+                DispatchQueue.main.async {
+                    self?.showScrollWindow()
                 }
             }
         }
@@ -223,6 +307,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 print("Hotkey detected (local), showing grid")
                 self?.showGrid(hotkey)
                 return nil
+            } else if let _ = self?.isScrollHotkey(event) {
+                print("Scroll hotkey detected (local), showing scroll mode")
+                self?.showScrollWindow()
+                return nil
             }
             return event
         }
@@ -231,7 +319,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             print("KeybrClicker ready. Registered hotkeys:")
             for (index, hotkey) in config.hotkeys.enumerated() {
                 let mods = hotkey.modifiers.joined(separator: "+")
-                print("  [\(index)] \(mods.uppercased())+\(hotkey.key.uppercased()) → \(hotkey.mouseButton.rawValue) click")
+                print("  [click\(index)] \(mods.uppercased())+\(hotkey.key.uppercased()) → \(hotkey.mouseButton.rawValue) click")
+            }
+            for (index, scrollHotkey) in config.scrollHotkeys.enumerated() {
+                let mods = scrollHotkey.modifiers.joined(separator: "+")
+                print("  [scroll\(index)] \(mods.uppercased())+\(scrollHotkey.key.uppercased()) → scroll mode")
             }
         } else {
             print("KeybrClicker ready.")
@@ -275,8 +367,31 @@ func loadGlobalConfig() {
         return nil
     }
     
+    func isScrollHotkey(_ event: NSEvent) -> ScrollHotkeyConfig? {
+        guard let config = globalConfig else {
+            return nil
+        }
+        
+        for scrollHotkey in config.scrollHotkeys {
+            let requiredFlags = scrollHotkey.getModifierFlags()
+            guard let requiredKeyCode = scrollHotkey.getKeyCode() else {
+                continue
+            }
+            
+            if event.modifierFlags.contains(requiredFlags) && event.keyCode == requiredKeyCode {
+                return scrollHotkey
+            }
+        }
+        
+        return nil
+    }
+    
     func showGrid(_ hotkey: HotkeyConfig) {
         gridWindow.show(hotkey)
+    }
+    
+    func showScrollWindow() {
+        scrollWindow.show()
     }
 }
 
@@ -332,6 +447,130 @@ class GridWindow: NSWindow {
         ignoresMouseEvents = true
         level = .normal
         orderOut(nil)
+    }
+}
+
+class ScrollWindow: NSWindow {
+    var scrollView: ScrollView!
+    
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    
+    init() {
+        let screenFrame = NSScreen.main!.frame
+        super.init(contentRect: screenFrame, styleMask: .borderless, backing: .buffered, defer: false)
+        
+        level = .screenSaver
+        backgroundColor = .clear
+        isOpaque = false
+        hasShadow = false
+        ignoresMouseEvents = true
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        hidesOnDeactivate = false
+        
+        scrollView = ScrollView(frame: NSRect(origin: .zero, size: screenFrame.size))
+        contentView = scrollView
+    }
+    
+    func show() {
+        guard let config = globalConfig else {
+            print("ERROR: No config loaded")
+            return
+        }
+        scrollView.scrollKeys = config.scrollKeys
+        scrollView.previousApp = NSWorkspace.shared.frontmostApplication
+        print("Scroll mode activated")
+        makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        makeFirstResponder(scrollView)
+    }
+    
+    func hide() {
+        ignoresMouseEvents = true
+        level = .normal
+        orderOut(nil)
+        print("Scroll mode deactivated")
+    }
+}
+
+class ScrollView: NSView {
+    var scrollKeys: ScrollKeysConfig!
+    var previousApp: NSRunningApplication?
+    
+    override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            print("Escape pressed, exiting scroll mode")
+            (window as? ScrollWindow)?.hide()
+            return
+        }
+        
+        guard let chars = event.characters?.lowercased(), chars.count == 1 else {
+            return
+        }
+        
+        let char = chars[chars.startIndex]
+        handleScrollInput(char: char)
+    }
+    
+    func handleScrollInput(char: Character) {
+        let key = String(char).lowercased()
+        let upKey = scrollKeys.up.lowercased()
+        let downKey = scrollKeys.down.lowercased()
+        let leftKey = scrollKeys.left.lowercased()
+        let rightKey = scrollKeys.right.lowercased()
+        
+        var direction: ScrollDirection?
+        
+        if key == upKey {
+            direction = .up
+        } else if key == downKey {
+            direction = .down
+        } else if key == leftKey {
+            direction = .left
+        } else if key == rightKey {
+            direction = .right
+        }
+        
+        if let dir = direction {
+            performScroll(direction: dir, amount: scrollKeys.amount)
+        }
+    }
+    
+    func performScroll(direction: ScrollDirection, amount: Int) {
+        let scrollAmount = Int32(amount)
+        
+        var verticalScroll: Int32 = 0
+        var horizontalScroll: Int32 = 0
+        
+        switch direction {
+        case .up:
+            verticalScroll = -scrollAmount
+        case .down:
+            verticalScroll = scrollAmount
+        case .left:
+            horizontalScroll = scrollAmount
+        case .right:
+            horizontalScroll = -scrollAmount
+        }
+        
+        let source = CGEventSource(stateID: .hidSystemState)
+        
+        let scrollEvent = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: verticalScroll, wheel2: horizontalScroll, wheel3: 0)
+        
+        scrollEvent?.post(tap: CGEventTapLocation.cgSessionEventTap)
+        
+        print("Scrolled \(direction)")
     }
 }
 
