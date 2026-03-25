@@ -1,27 +1,45 @@
 # KeybrClicker
 
-A native macos keyboard-driven mouse click utility. (single file)
+A native macOS keyboard-driven mouse click utility.
 
 https://github.com/user-attachments/assets/c980febb-5f5d-4e62-ba2e-fa71afcf87b9
 
-> i couldn't find an OSS tool like this so i decided to make my own, vibecoded with opencode (glm-5).
+> I couldn't find an OSS tool like this so I decided to make my own.
 
-# Getting Started
-
-Download binary from [latest release](https://github.com/antoni-ostrowski/keybrclicker/releases).
-
-## Building
+## Installation
 
 ```bash
-just build
+curl -sSL https://raw.githubusercontent.com/antoni-ostrowski/keybrclicker/main/install.sh | bash
 ```
 
-## Running
+**After installation, grant Accessibility permissions:**
+
+1. Open **System Settings → Privacy & Security → Accessibility**
+2. Click the **+** button
+3. Add `~/Applications/KeybrClicker.app`
+4. Ensure KeybrClicker is enabled in the list
+
+The service starts automatically at login.
+
+## Uninstall
 
 ```bash
-just start
-# OR
-./bin/keybrclicker
+curl -sSL https://raw.githubusercontent.com/antoni-ostrowski/keybrclicker/main/uninstall.sh | bash
+```
+
+## Managing the Service
+
+| Command                                                | Description      |
+| ------------------------------------------------------ | ---------------- |
+| `launchctl print gui/$(id -u)/com.keybrclicker`        | Check if running |
+| `launchctl kickstart -k gui/$(id -u)/com.keybrclicker` | Restart service  |
+| `tail -f ~/.local/state/keybrclicker/keybrclicker.log` | View logs        |
+| `launchctl bootout gui/$(id -u)/com.keybrclicker`      | Stop service     |
+
+To start again after stopping:
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.keybrclicker.plist
 ```
 
 ## Usage
@@ -33,11 +51,9 @@ just start
 
 ## Configuration
 
-Config is stored at `~/.config/keybrclicker/config.json`. A default config is created automatically on first run if it doesn't exist.
+Config: `~/.config/keybrclicker/config.json` (created automatically)
 
 ### Hotkeys
-
-Define multiple hotkeys, each with its own mouse button:
 
 ```json
 "hotkeys": [
@@ -56,49 +72,15 @@ Define multiple hotkeys, each with its own mouse button:
 
 **Fields:**
 
-- `modifiers`: Array of modifier keys (see below)
-- `key`: Single key to trigger the hotkey (see below)
-- `mouseButton`: `"left"`, `"right"`, or `"middle"`
-
-**Available modifiers:**
-
-- `cmd` (or `command`)
-- `option` (or `alt`)
-- `control` (or `ctrl`)
-- `shift`
-
-**Available keys:**
-
-- Any single character: `"g"`, `"a"`, `"1"`, etc.
-- Special keys: `"space"`, `"return"`, `"enter"`, `"tab"`, `"escape"`, `"esc"`
-- Function keys: `"f1"` through `"f12"`
-- Arrow keys: `"up"`, `"down"`, `"left"`, `"right"`
-- Other: `"delete"`, `"backspace"`
-
-**Examples:**
-
-- Left click: `{"modifiers": ["cmd", "option"], "key": "g", "mouseButton": "left"}`
-- Right click: `{"modifiers": ["cmd", "option", "shift"], "key": "g", "mouseButton": "right"}`
-- Middle click: `{"modifiers": ["cmd", "option"], "key": "m", "mouseButton": "middle"}`
+- `modifiers`: Array of `cmd`, `option`, `control`, `shift`
+- `key`: Single character or special key (`f1`-`f12`, `space`, `return`, `tab`, `escape`, etc.)
+- `mouseButton`: `left`, `right`, or `middle`
 
 ### Scroll Mode
 
-Scroll mode allows you to scroll anywhere using keyboard keys. When activated:
-
-1. Press the configured scroll hotkey to enter scroll mode
-2. Use scroll keys (default: H/J/K/L for left/down/up/right) to scroll at the current mouse position
-3. Hold the key to scroll continuously
-4. Press `Escape` to exit scroll mode
-
-**`scrollHotkeys`**: Array of hotkey configurations to activate scroll mode (no mouse button needed).
-
-**`scrollKeys`**: Configuration for scroll direction keys and scroll amount.
-
 ```json
 {
-  "scrollHotkeys": [
-    { "modifiers": ["cmd", "option"], "key": "s" }
-  ],
+  "scrollHotkeys": [{ "modifiers": ["cmd", "option"], "key": "s" }],
   "scrollKeys": {
     "up": "k",
     "down": "j",
@@ -109,51 +91,41 @@ Scroll mode allows you to scroll anywhere using keyboard keys. When activated:
 }
 ```
 
-**Fields:**
-
-- `up`, `down`, `left`, `right`: Keys for each scroll direction
-- `amount`: Number of scroll units per keypress (default: 3)
-
-**Note**: If `scrollHotkeys` or `scrollKeys` are not specified in config, defaults are used:
-- Scroll hotkey: `Cmd+Option+S`
-- Scroll keys: H/J/K/L (vim-style)
-- Scroll amount: 3
+1. Press scroll hotkey to enter scroll mode
+2. Use H/J/K/L (vim-style) to scroll at cursor position
+3. Press `Escape` to exit
 
 ### Keyboard Layout
 
-The grid is based on your keyboard layout for easy memorization.
-
-**`layout`**: 2D array representing your keyboard rows (top to bottom, left to right). The middle row is automatically used as the home row for column labels.
-
-**Example (QWERTY):**
+Grid matches your keyboard for easy memorization:
 
 ```json
-{
-  "hotkeys": [...],
-  "layout": [
-    ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-    ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
-    ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
-  ]
-}
+"layout": [
+  ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+  ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
+  ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"]
+]
 ```
 
 ## Permissions
 
-On first run, the app will request Accessibility permissions. This is required for:
+Required for hotkey detection, mouse clicks, and scroll events.
 
-- Global hotkey detection
-- Simulating mouse clicks
-- Simulating scroll events
+If clicks don't work, ensure KeybrClicker is enabled in **System Settings → Privacy & Security → Accessibility**.
 
-If clicks or scrolling don't work, check **System Settings → Privacy & Security → Accessibility** and ensure `keybrclicker` is enabled.
+---
 
-## Quitting
+## Building from Source
 
-Since the app doesn't appear in the dock or menu bar, quit it via:
+Requires [just](https://github.com/casey/just) (build tool) and Swift compiler (Xcode Command Line Tools).
 
 ```bash
-pkill keybrclicker
+brew install just
+git clone https://github.com/antoni-ostrowski/keybrclicker.git
+cd keybrclicker
+just build
+just install-service
 ```
 
-Or use Activity Monitor or kill process via raycast.
+For development commands, see `justfile` or run `just --list`.
+
