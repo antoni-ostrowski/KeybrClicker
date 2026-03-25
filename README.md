@@ -128,4 +128,3 @@ just install-service
 ```
 
 For development commands, see `justfile` or run `just --list`.
-

@@ -42,11 +42,11 @@ echo ""
 echo "=== Uninstall Complete ==="
 echo ""
 read -p "Also remove config (~/.config/keybrclicker/) and logs (~/.local/state/keybrclicker/)? [y/N] " -n 1 -r
-echo
+echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     rm -rf "$CONFIG_DIR" 2>/dev/null && echo "Removed: $CONFIG_DIR" || echo "Config dir not found."
     rm -rf "$LOG_DIR" 2>/dev/null && echo "Removed: $LOG_DIR" || echo "Log dir not found."
 fi
 echo ""
 echo "Accessibility permission may still be listed in System Settings."
-echo "You can remove it manually: System Settings → Privacy & Security → Accessibility"
+echo "Remove it manually: System Settings → Privacy & Security → Accessibility"
