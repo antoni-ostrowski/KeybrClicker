@@ -276,6 +276,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scrollWindow: ScrollWindow!
     var globalMonitor: Any?
     var localMonitor: Any?
+    var keyboardInterceptor: Any?
+    var isGridActive = false
+    var isScrollActive = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("KeybrClicker starting...")
@@ -393,12 +396,47 @@ func loadGlobalConfig() {
         return nil
     }
     
+    func startKeyboardInterception() {
+        guard keyboardInterceptor == nil else { return }
+        keyboardInterceptor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+            if self.isGridActive {
+                self.gridWindow.gridView.handleKeyEvent(event)
+            } else if self.isScrollActive {
+                self.scrollWindow.scrollView.handleKeyEvent(event)
+            }
+        }
+    }
+    
+    func stopKeyboardInterception() {
+        if let monitor = keyboardInterceptor {
+            NSEvent.removeMonitor(monitor)
+            keyboardInterceptor = nil
+        }
+    }
+    
     func showGrid(_ hotkey: HotkeyConfig) {
+        isGridActive = true
+        startKeyboardInterception()
         gridWindow.show(hotkey)
     }
     
     func showScrollWindow() {
+        isScrollActive = true
+        startKeyboardInterception()
         scrollWindow.show()
+    }
+    
+    func hideGrid() {
+        isGridActive = false
+        stopKeyboardInterception()
+        gridWindow.hide()
+    }
+    
+    func hideScrollWindow() {
+        isScrollActive = false
+        stopKeyboardInterception()
+        scrollWindow.hide()
     }
 }
 
@@ -515,10 +553,10 @@ class ScrollView: NSView {
         super.init(coder: coder)
     }
     
-    override func keyDown(with event: NSEvent) {
+    func handleKeyEvent(_ event: NSEvent) {
         if event.keyCode == 53 {
             print("Escape pressed, exiting scroll mode")
-            (window as? ScrollWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideScrollWindow()
             return
         }
         
@@ -528,6 +566,10 @@ class ScrollView: NSView {
         
         let char = chars[chars.startIndex]
         handleScrollInput(char: char)
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        handleKeyEvent(event)
     }
     
     func handleScrollInput(char: Character) {
@@ -843,16 +885,16 @@ class GridView: NSView {
     
     override var acceptsFirstResponder: Bool { true }
     
-    override func keyDown(with event: NSEvent) {
+    func handleKeyEvent(_ event: NSEvent) {
         if event.keyCode == 53 {
             print("Escape pressed, hiding grid")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
             return
         }
         
         guard let chars = event.characters?.uppercased(), chars.count == 1 else {
             print("WARNING: Could not get characters from key event")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
             return
         }
         
@@ -864,6 +906,10 @@ class GridView: NSView {
         case .miniGrid:
             handleMiniGridInput(char: char)
         }
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        handleKeyEvent(event)
     }
     
     func handleBigGridInput(char: Character) {
@@ -879,7 +925,7 @@ class GridView: NSView {
                 needsDisplay = true
             } else {
                 print("Invalid big cell code: \(inputBuffer), hiding grid")
-                (window as? GridWindow)?.hide()
+                (NSApp.delegate as? AppDelegate)?.hideGrid()
             }
         }
     }
@@ -892,7 +938,7 @@ class GridView: NSView {
             handleClick(bigCell: selectedBigCell, miniKey: key)
         } else {
             print("Invalid mini grid key: \(key), hiding grid")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
         }
     }
     
@@ -900,7 +946,7 @@ class GridView: NSView {
         guard let bigIndices = getBigCellIndices(code: bigCell),
               let miniPosition = findMiniKeyPosition(miniKey) else {
             print("ERROR: Invalid cell or key")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
             return
         }
         
@@ -923,7 +969,7 @@ class GridView: NSView {
         let windowPoint = convert(NSPoint(x: localX, y: localY), to: nil)
         guard let screenRect = window?.convertToScreen(NSRect(origin: windowPoint, size: .zero)) else {
             print("ERROR: Could not convert to screen coordinates")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
             return
         }
         
@@ -963,7 +1009,7 @@ class GridView: NSView {
         guard let downEvent = CGEvent(mouseEventSource: source, mouseType: downType, mouseCursorPosition: cgClickPoint, mouseButton: cgButton),
               let upEvent = CGEvent(mouseEventSource: source, mouseType: upType, mouseCursorPosition: cgClickPoint, mouseButton: cgButton) else {
             print("ERROR: Could not create mouse events")
-            (window as? GridWindow)?.hide()
+            (NSApp.delegate as? AppDelegate)?.hideGrid()
             return
         }
         
@@ -977,7 +1023,7 @@ class GridView: NSView {
         
         let app = previousApp
         
-        (window as? GridWindow)?.hide()
+        (NSApp.delegate as? AppDelegate)?.hideGrid()
         
         DispatchQueue.global(qos: .userInteractive).async {
             usleep(HIDE_DELAY_US)

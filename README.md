@@ -34,9 +34,11 @@ just start
 ### Big Cell Labels
 
 -**1st letter:** Column label from your home row (left to right on keyboard)
+
 - **2nd letter:** Row label in alphabetical order from top (A, B, C, ..., Z, ;, ,, ., /, ...)
 
 For example, with default QWERTY layout:
+
 - `AA` = top-left corner
 - `AB` = second row from top, leftmost column
 - `SA` = top row, second column from left
@@ -107,9 +109,7 @@ Scroll mode allows you to scroll anywhere using keyboard keys. When activated:
 
 ```json
 {
-  "scrollHotkeys": [
-    { "modifiers": ["cmd", "option"], "key": "s" }
-  ],
+  "scrollHotkeys": [{ "modifiers": ["cmd", "option"], "key": "s" }],
   "scrollKeys": {
     "up": "k",
     "down": "j",
@@ -126,6 +126,7 @@ Scroll mode allows you to scroll anywhere using keyboard keys. When activated:
 - `amount`: Number of scroll units per keypress (default: 3)
 
 **Note**: If `scrollHotkeys` or `scrollKeys` are not specified in config, defaults are used:
+
 - Scroll hotkey: `Cmd+Option+S`
 - Scroll keys: H/J/K/L (vim-style)
 - Scroll amount: 3
